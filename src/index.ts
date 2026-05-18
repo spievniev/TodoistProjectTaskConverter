@@ -1,23 +1,16 @@
-import express, { json } from "express";
-import { saveRawBody, verificationMiddleware } from "./middleware/verification";
-import { tokenExtractor } from "./middleware/token";
-import toTask from "./commands/to_task";
-import toProject from "./commands/to_project";
-import { storeLog } from "./redis";
-import { waitUntil } from "@vercel/functions";
-import "dotenv/config";
+import { Hono } from "hono";
+import { log } from "./store/redis";
+import auth from "./middleware/auth";
+import toTask from "./handlers/to_task";
+import toProject from "./handlers/to_project";
 
-const PORT = process.env.PORT || 3000;
+process.on("uncaughtException", (error) => log("Uncaught exception: " + JSON.stringify(error)));
 
-process.on("uncaughtException", (error) => waitUntil(storeLog("Uncaught exception: " + JSON.stringify(error))));
-
-const app = express();
-
-app.use(json({ verify: saveRawBody }), verificationMiddleware, tokenExtractor);
+const app = new Hono().use(auth);
 
 app.post("/to_task", toTask);
 app.post("/to_project", toProject);
 
-app.listen(PORT, () => console.log(`Extension server is running on port ${PORT}.`));
+app.notFound(async (c) => c.text("Not Found", 404));
 
 export default app;

@@ -1,35 +1,16 @@
 {
-	"name": "todoist-task-to-project-converter",
-	"version": "1.0.0",
-	"author": "ToxyFlog1627",
-	"repository": "https://github.com/ToxyFlog1627/ProjectTaskConverterTodoistApp",
-	"scripts": {
-		"dev": "nodemon src/index.ts",
-		"build": "rimraf build && tsc",
-		"add-build": "git add build"
-	},
-	"pre-commit": [
-		"build",
-		"add-build"
-	],
-	"dependencies": {
-		"@doist/todoist-api-typescript": "^6.1.12",
-		"@doist/ui-extensions-core": "^5.1.2",
-		"@upstash/redis": "^1.31.0",
-		"@vercel/functions": "^3.3.4",
-		"axios": "^1.9.0",
-		"crypto-js": "^4.2.0",
-		"express": "^5.1.0"
-	},
-	"devDependencies": {
-		"@types/crypto-js": "^4.2.2",
-		"@types/express": "^5.0.1",
-		"@types/node": "^24.10.1",
-		"dotenv": "^17.2.3",
-		"nodemon": "^3.1.10",
-		"pre-commit": "^1.2.2",
-		"rimraf": "^6.0.1",
-		"ts-node": "^10.9.2",
-		"typescript": "^5.8.3"
-	}
+  "name": "todoist-project-task-converter",
+  "version": "1.0.0",
+  "dependencies": {
+    "@doist/todoist-sdk": "^10.1.5",
+    "@doist/ui-extensions-core": "^5.1.2",
+    "@upstash/redis": "^1.38.0",
+    "@vercel/functions": "^3.6.0",
+    "hono": "^4.12.19"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.41",
+    "tsx": "^4.7.1",
+    "typescript": "^5.8.3"
+  }
 }
