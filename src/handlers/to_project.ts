@@ -10,6 +10,7 @@ import paginatedRequest from "../todoist/paginated_request";
 import { waitUntil } from "@vercel/functions";
 import { randomUUID } from "node:crypto";
 import sync from "../todoist/sync";
+import { errorToString } from "../utils/stringify";
 
 const CREATE_NEW_PROJECT = "new_project";
 const NO_PARENT_PROJECT = "none";
@@ -218,7 +219,7 @@ const toProject = async (c: Context<AuthEnv>) => {
             return c.json(errorResponse("Unknown action type."));
         }
     } catch (error) {
-        log("Unexpected error while converting task to project: " + JSON.stringify(error));
+        log("Unexpected error while converting task to project: " + errorToString(error));
         return c.json(errorResponse("Unexpected error during conversion."));
     }
 };
