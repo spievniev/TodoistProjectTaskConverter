@@ -14,13 +14,11 @@ export type AuthEnv = {
     };
 };
 
-const hmac = createHmac("sha256", VERIFICATION_TOKEN);
-
 const auth = createMiddleware<AuthEnv>(async (c, next) => {
     const requestHash = c.req.header("x-todoist-hmac-sha256");
     if (!requestHash) throw new HTTPException(401, { message: "Unauthorized" });
 
-    const hash = hmac
+    const hash = createHmac("sha256", VERIFICATION_TOKEN)
         .update(await c.req.text())
         .digest()
         .toBase64();
