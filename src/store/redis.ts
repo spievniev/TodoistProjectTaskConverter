@@ -23,13 +23,13 @@ export const log = (message: string) => {
     const redis = getRedis();
     const key = `logs:${new Date().toISOString().slice(0, 10)}`;
 
-    waitUntil(
-        (async () => {
-            await redis.rpush(key, message);
-            // Set expiry if it is the first entry
-            await redis.expire(key, LOG_EXPIRATION_SECONDS, "NX");
-        })()
-    );
+    const pushMessage = async () => {
+        await redis.rpush(key, message);
+        // Set expiry if it is the first entry
+        await redis.expire(key, LOG_EXPIRATION_SECONDS, "NX");
+    };
+
+    waitUntil(pushMessage());
 };
 
 export const countUser = (id: string) => {
