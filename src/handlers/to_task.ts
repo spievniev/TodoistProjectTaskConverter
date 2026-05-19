@@ -2,7 +2,7 @@ import { Choice, ChoiceSetInput, DoistCard, SubmitAction, ToggleInput } from "@d
 import type { Context } from "hono";
 import { AuthEnv } from "../middleware/auth";
 import { createCommand, SyncCommand, TodoistApi } from "@doist/todoist-sdk";
-import { log } from "../store/redis";
+import { countUser, log } from "../store/redis";
 import { errorResponse, successResponse } from "../todoist/response";
 import { retryInfoCard, syncInfoCard } from "../todoist/info_card";
 import { isSynced, Project } from "../todoist/utils";
@@ -123,7 +123,7 @@ const toTask = async (c: Context<AuthEnv>) => {
         const api = new TodoistApi(token);
 
         const body = await c.req.json();
-        const { actionType, actionId, params, inputs } = body.action;
+        const { context, actionType, actionId, params, inputs } = body.action;
         const { sourceId: projectId } = params;
 
         if (actionType === "initial") {
@@ -139,6 +139,10 @@ const toTask = async (c: Context<AuthEnv>) => {
             await convertProjectToTask(api, groupBySections === "true", projectId, newTaskProjectId);
             return c.json({ card: syncInfoCard(ACTION.close, "project") });
         } else if (actionId === ACTION.close) {
+            const userId = context.user.id;
+            if (!userId) return c.json(errorResponse("Invalid request: no user id."));
+
+            countUser(userId);
             return c.json(successResponse());
         } else {
             return c.json(errorResponse("Unknown action type."));

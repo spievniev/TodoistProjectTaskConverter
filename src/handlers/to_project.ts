@@ -5,7 +5,7 @@ import { createCommand, SyncCommand, TodoistApi } from "@doist/todoist-sdk";
 import { errorResponse, successResponse } from "../todoist/response";
 import { isSynced, Project } from "../todoist/utils";
 import { retryInfoCard, syncInfoCard } from "../todoist/info_card";
-import { log } from "../store/redis";
+import { countUser, log } from "../store/redis";
 import paginatedRequest from "../todoist/paginated_request";
 import { waitUntil } from "@vercel/functions";
 import { randomUUID } from "node:crypto";
@@ -169,7 +169,7 @@ const toProject = async (c: Context<AuthEnv>) => {
         const api = new TodoistApi(token);
 
         const body = await c.req.json();
-        const { actionType, actionId, params, inputs, data } = body.action;
+        const { context, actionType, actionId, params, inputs, data } = body.action;
         const { contentPlain: taskTitle, sourceId: taskId } = params;
 
         if (actionType === "initial") {
@@ -209,6 +209,10 @@ const toProject = async (c: Context<AuthEnv>) => {
             await convertTaskToProject(api, taskId, project.id, data.options);
             return c.json({ card: syncInfoCard(ACTION.close, "task") });
         } else if (actionId === ACTION.close) {
+            const userId = context.user.id;
+            if (!userId) return c.json(errorResponse("Invalid request: no user id."));
+
+            countUser(userId);
             return c.json(successResponse());
         } else {
             return c.json(errorResponse("Unknown action type."));

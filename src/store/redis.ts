@@ -1,4 +1,5 @@
 import { Redis } from "@upstash/redis";
+import { getWeek } from "../utils/week";
 import { waitUntil } from "@vercel/functions";
 
 const LOG_EXPIRATION_SECONDS = 30 * 24 * 60 * 60; // 30d
@@ -29,4 +30,12 @@ export const log = (message: string) => {
             await redis.expire(key, LOG_EXPIRATION_SECONDS, "NX");
         })()
     );
+};
+
+export const countUser = (id: string) => {
+    if (!isVercel) return;
+
+    const redis = getRedis();
+    const key = `users:week-${getWeek(new Date())}`;
+    waitUntil(redis.sadd(key, id));
 };
