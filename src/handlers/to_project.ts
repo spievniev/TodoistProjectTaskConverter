@@ -170,6 +170,7 @@ const toProject = async (c: Context<AuthEnv>) => {
         const api = new TodoistApi(token);
 
         const body = await c.req.json();
+        console.log(body);
         const { context, actionType, actionId, params, inputs, data } = body.action;
         const { contentPlain: taskTitle, sourceId: taskId } = params;
 
