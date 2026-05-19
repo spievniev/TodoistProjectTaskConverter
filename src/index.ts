@@ -3,6 +3,7 @@ import { log } from "./store/redis";
 import auth from "./middleware/auth";
 import toTask from "./handlers/to_task";
 import toProject from "./handlers/to_project";
+import { HTTPException } from "hono/http-exception";
 
 const app = new Hono().use(auth);
 
@@ -15,6 +16,8 @@ process.on("uncaughtException", (error) => log("Uncaught exception: " + JSON.str
 process.on("unhandledRejection", (error) => log("Unhandled rejection: " + JSON.stringify(error)));
 
 app.onError((error, c) => {
+    if (error instanceof HTTPException) return error.getResponse();
+
     log("Uncaught exception: " + JSON.stringify(error));
     return c.text("Internal Server Error", 500);
 });
