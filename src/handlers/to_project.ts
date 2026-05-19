@@ -7,6 +7,7 @@ import { isSynced, Project } from "../todoist/utils";
 import { retryInfoCard, syncInfoCard } from "../todoist/info_card";
 import { log } from "../store/redis";
 import paginatedRequest from "../todoist/paginated_request";
+import { randomUUID } from "node:crypto";
 
 const CREATE_NEW_PROJECT = "new_project";
 const NO_PARENT_PROJECT = "none";
@@ -135,11 +136,16 @@ const convertTaskToProject = async (api: TodoistApi, taskId: string, projectId: 
 
     if (options.moveDescription && task.description) {
         commands.push(
-            createCommand("item_add", {
-                content: "* [Description]",
-                description: task.description,
-                projectId,
-            }),
+            createCommand(
+                "item_add",
+                {
+                    content: "* [Description]",
+                    description: task.description,
+                    projectId,
+                },
+                // Temp ID is required to create task.
+                randomUUID()
+            ),
             createCommand("item_update", {
                 id: task.id,
                 description: "",
