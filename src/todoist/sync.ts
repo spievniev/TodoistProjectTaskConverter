@@ -1,7 +1,7 @@
 import { SyncCommand, TodoistApi } from "@doist/todoist-sdk";
 import { log } from "../store/redis";
 
-const BATCH_SIZE = 100;
+const BATCH_SIZE = 50;
 
 // Todoist's sync limits the number of commands so sync in batches.
 const sync = async (api: TodoistApi, commands: SyncCommand[]) => {
