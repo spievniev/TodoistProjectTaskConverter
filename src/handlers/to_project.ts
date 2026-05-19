@@ -170,8 +170,7 @@ const toProject = async (c: Context<AuthEnv>) => {
         const api = new TodoistApi(token);
 
         const body = await c.req.json();
-        console.log(body);
-        const { context, actionType, actionId, params, inputs, data } = body.action;
+        const { actionType, actionId, params, inputs, data } = body.action;
         const { contentPlain: taskTitle, sourceId: taskId } = params;
 
         if (actionType === "initial") {
@@ -211,7 +210,7 @@ const toProject = async (c: Context<AuthEnv>) => {
             await convertTaskToProject(api, taskId, project.id, data.options);
             return c.json({ card: syncInfoCard(ACTION.close, "task") });
         } else if (actionId === ACTION.close) {
-            const userId = context.user.id;
+            const userId = body.context.user.id;
             if (!userId) return c.json(errorResponse("Invalid request: no user id."));
 
             countUser(userId);
