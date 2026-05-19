@@ -8,6 +8,8 @@ import { retryInfoCard, syncInfoCard } from "../todoist/info_card";
 import { isSynced, Project } from "../todoist/utils";
 import { randomUUID } from "node:crypto";
 import paginatedRequest from "../todoist/paginated_request";
+import { waitUntil } from "@vercel/functions";
+import sync from "../todoist/sync";
 
 const INPUT = {
     projectId: "Input.ProjectId",
@@ -110,8 +112,8 @@ const convertProjectToTask = async (
         commands.push(...topLevelTasks.map((task) => createCommand("item_move", { id: task.id, parentId: "root" })));
     }
 
-    const response = await api.sync({ commands });
-    log(JSON.stringify(response));
+    // Don't wait for sync to complete or the response will timeout.
+    waitUntil(sync(api, commands));
 };
 
 const toTask = async (c: Context<AuthEnv>) => {

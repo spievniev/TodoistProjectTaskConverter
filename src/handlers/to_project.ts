@@ -7,7 +7,9 @@ import { isSynced, Project } from "../todoist/utils";
 import { retryInfoCard, syncInfoCard } from "../todoist/info_card";
 import { log } from "../store/redis";
 import paginatedRequest from "../todoist/paginated_request";
+import { waitUntil } from "@vercel/functions";
 import { randomUUID } from "node:crypto";
+import sync from "../todoist/sync";
 
 const CREATE_NEW_PROJECT = "new_project";
 const NO_PARENT_PROJECT = "none";
@@ -156,8 +158,8 @@ const convertTaskToProject = async (api: TodoistApi, taskId: string, projectId: 
     const subtasks = await paginatedRequest(api, api.getTasks, { parentId: task.id, limit: 200 });
     commands.push(...subtasks.map(({ id }) => createCommand("item_move", { id, projectId })));
 
-    const response = await api.sync({ commands });
-    log(JSON.stringify(response));
+    // Don't wait for sync to complete or the response will timeout.
+    waitUntil(sync(api, commands));
 };
 
 const toProject = async (c: Context<AuthEnv>) => {
