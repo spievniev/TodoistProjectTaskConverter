@@ -16,7 +16,7 @@ const sync = async (api: TodoistApi, commands: SyncCommand[]) => {
             }
         }
 
-        const response = await api.sync({ commands: batch });
+        const response = await api.sync({ commands: batch, resourceTypes: [] });
         tempIdMap = { ...tempIdMap, ...response.tempIdMapping };
 
         for (const [id, status] of Object.entries(response.syncStatus || {})) {
