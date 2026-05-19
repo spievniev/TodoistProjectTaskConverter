@@ -78,7 +78,7 @@ const convertProjectToTask = async (
         )
     );
 
-    const tasks = await paginatedRequest(api, api.getTasks, { projectId, limit: 200 });
+    const tasks = await paginatedRequest(api, api.getTasks, { projectId });
     const topLevelTasks = tasks.filter((task) => task.parentId === null);
     if (groupBySections) {
         const tasksWithoutSection = topLevelTasks.filter((task) => !task.sectionId);
@@ -86,10 +86,10 @@ const convertProjectToTask = async (
             ...tasksWithoutSection.map((task) => createCommand("item_move", { id: task.id, parentId: "root" }))
         );
 
-        const sections = await paginatedRequest(api, api.getSections, { projectId: projectId, limit: 200 });
+        const sections = await paginatedRequest(api, api.getSections, { projectId: projectId });
         await Promise.all(
             sections.map(async (section) => {
-                const sectionTasks = await paginatedRequest(api, api.getTasks, { sectionId: section.id, limit: 200 });
+                const sectionTasks = await paginatedRequest(api, api.getTasks, { sectionId: section.id });
                 const sectionTaskId = randomUUID();
 
                 commands.push(

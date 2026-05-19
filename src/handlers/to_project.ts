@@ -155,7 +155,7 @@ const convertTaskToProject = async (api: TodoistApi, taskId: string, projectId: 
         );
     }
 
-    const subtasks = await paginatedRequest(api, api.getTasks, { parentId: task.id, limit: 200 });
+    const subtasks = await paginatedRequest(api, api.getTasks, { parentId: task.id });
     commands.push(...subtasks.map(({ id }) => createCommand("item_move", { id, projectId })));
 
     // Don't wait for sync to complete or the response will timeout.

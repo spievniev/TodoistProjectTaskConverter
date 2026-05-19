@@ -1,28 +1,28 @@
 import { TodoistApi } from "@doist/todoist-sdk";
 
-interface PaginatedParameter {
-    cursor?: string | null;
-}
+const TODOIST_PAGINATION_LIMIT = 200;
 
-type PaginatedFunction<P, R> = (arg: P) => Promise<{
-    results: R[];
-    nextCursor: string | null;
-}>;
+type Cursor = { cursor?: string };
+type Limit = { limit: number };
 
 const paginatedRequest = async <P, R>(
     api: TodoistApi,
-    apiMethod: PaginatedFunction<P, R>,
-    arg: NoInfer<P & PaginatedParameter>
+    apiMethod: (arg: P & Cursor & Limit) => Promise<{
+        results: R[];
+        nextCursor: string | null;
+    }>,
+    arg: P & Cursor
 ): Promise<R[]> => {
-    apiMethod = apiMethod.bind(api);
+    const boundMethod = apiMethod.bind(api);
+    const paginatedArg = { ...arg, limit: TODOIST_PAGINATION_LIMIT };
 
     const result: R[] = [];
     while (true) {
-        const response = await apiMethod(arg);
+        const response = await boundMethod(paginatedArg);
         result.push(...response.results);
 
         if (response.nextCursor === null) break;
-        arg.cursor = response.nextCursor;
+        paginatedArg.cursor = response.nextCursor;
     }
     return result;
 };
