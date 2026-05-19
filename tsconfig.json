@@ -4,6 +4,7 @@
         "module": "commonjs",
         "strict": true,
         "skipLibCheck": true,
+        "rootDir": "./src",
         "outDir": "./dist",
         "types": ["node"]
     },
