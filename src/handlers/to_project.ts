@@ -164,27 +164,33 @@ const convertTaskToProject = async (api: TodoistApi, taskId: string, projectId: 
 };
 
 const toProject = async (c: Context<AuthEnv>) => {
+    let userId = null;
     try {
         const token = c.get("token");
         if (!token) return c.json(errorResponse("Internal server error: no token."));
         const api = new TodoistApi(token);
 
         const body = await c.req.json();
+        userId = body.context.user.id;
+        if (!userId) return c.json(errorResponse("Invalid request: no user id."));
+
         const { actionType, actionId, params, inputs, data } = body.action;
         const { contentPlain: taskTitle, sourceId: taskId } = params;
 
         if (actionType === "initial") {
             if (!isSynced(taskId)) return c.json({ card: retryInfoCard(ACTION.close, "task") });
+            log(`${userId}: toProject/initial`);
 
             const projects: Project[] = (await api.getProjects({ limit: 200 })).results;
             return c.json({ card: selectionCard(projects) });
         } else if (actionId === ACTION.selectProject) {
-            const createRedirect = inputs[INPUT.createRedirect];
-            const moveDescription = inputs[INPUT.moveDescription];
-            const projectId = inputs[INPUT.projectId];
+            const createRedirect: string | undefined = inputs[INPUT.createRedirect];
+            const moveDescription: string | undefined = inputs[INPUT.moveDescription];
+            const projectId: string | undefined = inputs[INPUT.projectId];
             if (!createRedirect || !moveDescription || !projectId) {
                 return c.json(errorResponse("Invalid request: missing input."));
             }
+            log(`${userId}: toProject/select ${projectId} ${createRedirect} ${moveDescription}`);
 
             const options = {
                 createRedirect: createRedirect === "true",
@@ -198,28 +204,28 @@ const toProject = async (c: Context<AuthEnv>) => {
                 return c.json({ card: syncInfoCard(ACTION.close, "task") });
             }
         } else if (actionId === ACTION.createProject) {
-            const projectName = inputs[INPUT.projectName];
-            const parentId = inputs[INPUT.parentId];
+            const projectName: string | undefined = inputs[INPUT.projectName];
+            const parentId: string | undefined = inputs[INPUT.parentId];
             if (!projectName || !parentId) return c.json(errorResponse("Invalid request: missing input."));
+            log(`${userId}: toProject/create ${projectName.length} ${parentId}`);
 
             const project = await api.addProject({
                 name: projectName,
-                parentId: parentId === NO_PARENT_PROJECT ? null : parentId,
+                parentId: parentId === NO_PARENT_PROJECT ? undefined : parentId,
             });
 
             await convertTaskToProject(api, taskId, project.id, data.options);
             return c.json({ card: syncInfoCard(ACTION.close, "task") });
         } else if (actionId === ACTION.close) {
-            const userId = body.context.user.id;
-            if (!userId) return c.json(errorResponse("Invalid request: no user id."));
-
+            log(`${userId}: toProject/close`);
             countUser(userId);
             return c.json(successResponse());
         } else {
+            log(`${userId}: toProject/error unknown action type`);
             return c.json(errorResponse("Unknown action type."));
         }
     } catch (error) {
-        log("Unexpected error while converting task to project: " + errorToString(error));
+        log(`${userId}: toProject/error unexpected error: ${errorToString(error)}`);
         return c.json(errorResponse("Unexpected error during conversion."));
     }
 };

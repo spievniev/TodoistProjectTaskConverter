@@ -118,38 +118,43 @@ const convertProjectToTask = async (
 };
 
 const toTask = async (c: Context<AuthEnv>) => {
+    let userId = null;
     try {
         const token = c.get("token");
         if (!token) return c.json(errorResponse("Internal server error: no token."));
         const api = new TodoistApi(token);
 
         const body = await c.req.json();
+        userId = body.context.user.id;
+        if (!userId) return c.json(errorResponse("Invalid request: no user id."));
+
         const { actionType, actionId, params, inputs } = body.action;
         const { sourceId: projectId } = params;
 
         if (actionType === "initial") {
             if (!isSynced(projectId)) return c.json({ card: retryInfoCard(ACTION.close, "project") });
+            log(`${userId}: toTask/initial`);
 
             const projects: Project[] = (await api.getProjects({ limit: 200 })).results;
             return c.json({ card: inputCard(projects) });
         } else if (actionId === ACTION.convert) {
-            const newTaskProjectId = inputs[INPUT.projectId];
-            const groupBySections = inputs[INPUT.groupBySections];
+            const newTaskProjectId: string | undefined = inputs[INPUT.projectId];
+            const groupBySections: string | undefined = inputs[INPUT.groupBySections];
             if (!newTaskProjectId || !groupBySections) return c.json(errorResponse("Invalid request: missing input."));
+            log(`${userId}: toTask/convert ${newTaskProjectId} ${groupBySections}`);
 
             await convertProjectToTask(api, groupBySections === "true", projectId, newTaskProjectId);
             return c.json({ card: syncInfoCard(ACTION.close, "project") });
         } else if (actionId === ACTION.close) {
-            const userId = body.context.user.id;
-            if (!userId) return c.json(errorResponse("Invalid request: no user id."));
-
+            log(`${userId}: toTask/close`);
             countUser(userId);
             return c.json(successResponse());
         } else {
+            log(`${userId}: toTask/error unknown action type`);
             return c.json(errorResponse("Unknown action type."));
         }
     } catch (error) {
-        log("Unexpected error while converting project to task: " + errorToString(error));
+        log(`${userId}: toTask/error unexpected error: ${errorToString(error)}`);
         return c.json(errorResponse("Unexpected error during conversion."));
     }
 };
