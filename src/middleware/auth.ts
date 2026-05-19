@@ -20,8 +20,7 @@ const auth = createMiddleware<AuthEnv>(async (c, next) => {
 
     const hash = createHmac("sha256", VERIFICATION_TOKEN)
         .update(await c.req.text())
-        .digest()
-        .toBase64();
+        .digest("base64");
     if (hash !== requestHash) throw new HTTPException(401, { message: "Unauthorized" });
 
     const token = c.req.header("x-todoist-apptoken");
