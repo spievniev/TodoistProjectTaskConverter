@@ -23,6 +23,7 @@ const INPUT = {
 };
 
 const ACTION = {
+    nextPage: "Submit.nextPage",
     selectProject: "Submit.SelectProject",
     createProject: "Submit.CreateProject",
     close: "Submit.Close",
@@ -33,7 +34,7 @@ type Options = {
     moveDescription: boolean;
 };
 
-const selectionCard = (projects: Project[]): DoistCard => {
+const selectionCard = (projects: Project[], nextCursor: string | null): DoistCard => {
     const card = new DoistCard();
 
     const choices = [
@@ -68,6 +69,15 @@ const selectionCard = (projects: Project[]): DoistCard => {
         })
     );
 
+    if (nextCursor) {
+        card.addAction(
+            SubmitAction.from({
+                id: ACTION.nextPage,
+                data: { cursor: nextCursor },
+                title: "More projects",
+            })
+        );
+    }
     card.addAction(
         SubmitAction.from({
             id: ACTION.selectProject,
@@ -185,12 +195,13 @@ const toProject = async (c: Context<AuthEnv>) => {
         const { actionType, actionId, params, inputs, data } = body.action;
         const { contentPlain: taskTitle, sourceId: taskId } = params;
 
-        if (actionType === "initial") {
+        if (actionType === "initial" || actionId === ACTION.nextPage) {
             if (!isSynced(taskId)) return c.json({ card: retryInfoCard(ACTION.close, "task") });
-            log(`${userId}: toProject/initial`);
+            const cursor = data?.cursor;
+            log(`${userId}: toProject/initial ${cursor}`);
 
-            const projects: Project[] = (await api.getProjects({ limit: 200 })).results;
-            return c.json({ card: selectionCard(projects) });
+            const response = await api.getProjects({ cursor, limit: MAX_PAGE_SIZE });
+            return c.json({ card: selectionCard(response.results, response.nextCursor) });
         } else if (actionId === ACTION.selectProject) {
             const createRedirect: string | undefined = inputs[INPUT.createRedirect];
             const moveDescription: string | undefined = inputs[INPUT.moveDescription];
@@ -205,8 +216,8 @@ const toProject = async (c: Context<AuthEnv>) => {
                 moveDescription: moveDescription === "true",
             };
             if (projectId === CREATE_NEW_PROJECT) {
-                const projects: Project[] = (await api.getProjects({ limit: 200 })).results;
-                return c.json({ card: creationCard(taskTitle, projects, options) });
+                const response = await api.getProjects({ limit: MAX_PAGE_SIZE });
+                return c.json({ card: creationCard(taskTitle, response.results, options) });
             } else {
                 const card = await convertTaskToProject(api, taskId, projectId, options);
                 return c.json({ card });

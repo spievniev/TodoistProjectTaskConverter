@@ -17,11 +17,12 @@ const INPUT = {
 };
 
 const ACTION = {
+    nextPage: "Submit.NextPage",
     convert: "Submit.Convert",
     close: "Submit.Close",
 };
 
-const inputCard = (projects: Project[]): DoistCard => {
+const inputCard = (projects: Project[], nextCursor: string | null): DoistCard => {
     const card = new DoistCard();
 
     const inboxProject = projects.find((project) => project.inboxProject)?.id || projects[0].id;
@@ -47,10 +48,19 @@ const inputCard = (projects: Project[]): DoistCard => {
         })
     );
 
+    if (nextCursor) {
+        card.addAction(
+            SubmitAction.from({
+                id: ACTION.nextPage,
+                data: { cursor: nextCursor },
+                title: "More projects",
+            })
+        );
+    }
     card.addAction(
         SubmitAction.from({
             id: ACTION.convert,
-            title: "Next",
+            title: "Convert",
             style: "positive",
         })
     );
@@ -132,15 +142,16 @@ const toTask = async (c: Context<AuthEnv>) => {
         userId = body.context.user.id;
         if (!userId) return c.json(errorResponse("Invalid request: no user id."));
 
-        const { actionType, actionId, params, inputs } = body.action;
+        const { actionType, actionId, params, inputs, data } = body.action;
         const { sourceId: projectId } = params;
 
-        if (actionType === "initial") {
+        if (actionType === "initial" || actionId === ACTION.nextPage) {
             if (!isSynced(projectId)) return c.json({ card: retryInfoCard(ACTION.close, "project") });
-            log(`${userId}: toTask/initial`);
+            const cursor = data?.cursor;
+            log(`${userId}: toTask/initial ${cursor}`);
 
-            const projects: Project[] = (await api.getProjects({ limit: 200 })).results;
-            return c.json({ card: inputCard(projects) });
+            const response = await api.getProjects({ cursor, limit: MAX_PAGE_SIZE });
+            return c.json({ card: inputCard(response.results, response.nextCursor) });
         } else if (actionId === ACTION.convert) {
             const newTaskProjectId: string | undefined = inputs[INPUT.projectId];
             const groupBySections: string | undefined = inputs[INPUT.groupBySections];
