@@ -4,12 +4,12 @@ import { AuthEnv } from "../middleware/auth";
 import { createCommand, SyncCommand, TodoistApi } from "@doist/todoist-sdk";
 import { countUser, log } from "../store/redis";
 import { errorResponse, successResponse } from "../todoist/response";
-import { retryInfoCard, syncInfoCard } from "../todoist/info_card";
+import { retryInfoCard, syncInfoCard, syncTooLargeCard } from "../todoist/info_card";
 import { isSynced, Project } from "../todoist/utils";
 import { randomUUID } from "node:crypto";
 import paginatedRequest from "../todoist/paginated_request";
 import { waitUntil } from "@vercel/functions";
-import sync from "../todoist/sync";
+import sync, { MAX_SYNC_SIZE } from "../todoist/sync";
 import { errorToString } from "../utils/stringify";
 
 const INPUT = {
@@ -113,8 +113,11 @@ const convertProjectToTask = async (
         commands.push(...topLevelTasks.map((task) => createCommand("item_move", { id: task.id, parentId: "root" })));
     }
 
+    if (commands.length > MAX_SYNC_SIZE) return syncTooLargeCard(ACTION.close, "task");
+
     // Don't wait for sync to complete or the response will timeout.
     waitUntil(sync(api, commands));
+    return syncInfoCard(ACTION.close, "task");
 };
 
 const toTask = async (c: Context<AuthEnv>) => {

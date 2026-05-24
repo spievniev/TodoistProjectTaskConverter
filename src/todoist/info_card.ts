@@ -35,3 +35,6 @@ The ${target} is converted in the background.
 It might take a few minutes, do not modify it in the meantime.
         `
     );
+
+export const syncTooLargeCard = (actionId: string, target: Target): DoistCard =>
+    infoCard(actionId, `The ${target} contains too many tasks.`);

@@ -4,12 +4,12 @@ import { AuthEnv } from "../middleware/auth";
 import { createCommand, SyncCommand, TodoistApi } from "@doist/todoist-sdk";
 import { errorResponse, successResponse } from "../todoist/response";
 import { isSynced, Project } from "../todoist/utils";
-import { retryInfoCard, syncInfoCard } from "../todoist/info_card";
+import { retryInfoCard, syncInfoCard, syncTooLargeCard } from "../todoist/info_card";
 import { countUser, log } from "../store/redis";
 import paginatedRequest from "../todoist/paginated_request";
 import { waitUntil } from "@vercel/functions";
 import { randomUUID } from "node:crypto";
-import sync from "../todoist/sync";
+import sync, { MAX_SYNC_SIZE } from "../todoist/sync";
 import { errorToString } from "../utils/stringify";
 
 const CREATE_NEW_PROJECT = "new_project";
@@ -159,8 +159,11 @@ const convertTaskToProject = async (api: TodoistApi, taskId: string, projectId: 
     const subtasks = await paginatedRequest(api, api.getTasks, { parentId: task.id });
     commands.push(...subtasks.map(({ id }) => createCommand("item_move", { id, projectId })));
 
+    if (commands.length > MAX_SYNC_SIZE) return syncTooLargeCard(ACTION.close, "task");
+
     // Don't wait for sync to complete or the response will timeout.
     waitUntil(sync(api, commands));
+    return syncInfoCard(ACTION.close, "task");
 };
 
 const toProject = async (c: Context<AuthEnv>) => {
