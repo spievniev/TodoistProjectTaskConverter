@@ -5,9 +5,8 @@ import { createCommand, SyncCommand, TodoistApi } from "@doist/todoist-sdk";
 import { countUser, log } from "../store/redis";
 import { errorResponse, successResponse } from "../todoist/response";
 import { retryInfoCard, syncInfoCard, syncTooLargeCard } from "../todoist/info_card";
-import { isSynced, Project } from "../todoist/utils";
+import { isSynced, MAX_PAGE_SIZE, Project } from "../todoist/utils";
 import { randomUUID } from "node:crypto";
-import paginatedRequest from "../todoist/paginated_request";
 import { waitUntil } from "@vercel/functions";
 import sync, { MAX_SYNC_SIZE } from "../todoist/sync";
 import { errorToString } from "../utils/stringify";
@@ -64,7 +63,7 @@ const convertProjectToTask = async (
     groupBySections: boolean,
     projectId: string,
     newTaskProjectId: string
-) => {
+): Promise<DoistCard> => {
     const commands: SyncCommand[] = [];
     const project = await api.getProject(projectId);
 
@@ -79,7 +78,9 @@ const convertProjectToTask = async (
         )
     );
 
-    const tasks = await paginatedRequest(api, api.getTasks, { projectId });
+    const tasks = (await api.getTasks({ projectId, limit: MAX_PAGE_SIZE })).results;
+    if (tasks.length >= MAX_PAGE_SIZE) return syncTooLargeCard(ACTION.close, "project");
+
     const topLevelTasks = tasks.filter((task) => task.parentId === null);
     if (groupBySections) {
         const tasksWithoutSection = topLevelTasks.filter((task) => !task.sectionId);
@@ -87,10 +88,10 @@ const convertProjectToTask = async (
             ...tasksWithoutSection.map((task) => createCommand("item_move", { id: task.id, parentId: "root" }))
         );
 
-        const sections = await paginatedRequest(api, api.getSections, { projectId: projectId });
+        const sections = (await api.getSections({ projectId: projectId, limit: MAX_PAGE_SIZE })).results;
         await Promise.all(
             sections.map(async (section) => {
-                const sectionTasks = await paginatedRequest(api, api.getTasks, { sectionId: section.id });
+                const sectionTasks = (await api.getTasks({ sectionId: section.id, limit: MAX_PAGE_SIZE })).results;
                 const sectionTaskId = randomUUID();
 
                 commands.push(
@@ -113,11 +114,11 @@ const convertProjectToTask = async (
         commands.push(...topLevelTasks.map((task) => createCommand("item_move", { id: task.id, parentId: "root" })));
     }
 
-    if (commands.length > MAX_SYNC_SIZE) return syncTooLargeCard(ACTION.close, "task");
+    if (commands.length > MAX_SYNC_SIZE) return syncTooLargeCard(ACTION.close, "project");
 
     // Don't wait for sync to complete or the response will timeout.
     waitUntil(sync(api, commands));
-    return syncInfoCard(ACTION.close, "task");
+    return syncInfoCard(ACTION.close, "project");
 };
 
 const toTask = async (c: Context<AuthEnv>) => {
@@ -146,8 +147,8 @@ const toTask = async (c: Context<AuthEnv>) => {
             if (!newTaskProjectId || !groupBySections) return c.json(errorResponse("Invalid request: missing input."));
             log(`${userId}: toTask/convert ${newTaskProjectId} ${groupBySections}`);
 
-            await convertProjectToTask(api, groupBySections === "true", projectId, newTaskProjectId);
-            return c.json({ card: syncInfoCard(ACTION.close, "project") });
+            const card = await convertProjectToTask(api, groupBySections === "true", projectId, newTaskProjectId);
+            return c.json({ card });
         } else if (actionId === ACTION.close) {
             log(`${userId}: toTask/close`);
             countUser(userId);

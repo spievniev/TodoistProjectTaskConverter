@@ -8,3 +8,5 @@ export type Project = {
     name: string;
     inboxProject?: boolean;
 };
+
+export const MAX_PAGE_SIZE = 200;

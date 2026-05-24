@@ -1,8 +1,11 @@
 import { SyncCommand, TodoistApi } from "@doist/todoist-sdk";
 import { log } from "../store/redis";
 
+// UI extension cannot handle more because it uses short-lived OAuth token
+// which expires in 2 minutes.
 export const MAX_SYNC_SIZE = 200;
 
+// Maximum batch size is 100 but 50 seems to perform better
 const BATCH_SIZE = 50;
 
 // Todoist's sync limits the number of commands so sync in batches.

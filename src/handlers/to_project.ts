@@ -3,10 +3,9 @@ import type { Context } from "hono";
 import { AuthEnv } from "../middleware/auth";
 import { createCommand, SyncCommand, TodoistApi } from "@doist/todoist-sdk";
 import { errorResponse, successResponse } from "../todoist/response";
-import { isSynced, Project } from "../todoist/utils";
+import { isSynced, MAX_PAGE_SIZE, Project } from "../todoist/utils";
 import { retryInfoCard, syncInfoCard, syncTooLargeCard } from "../todoist/info_card";
 import { countUser, log } from "../store/redis";
-import paginatedRequest from "../todoist/paginated_request";
 import { waitUntil } from "@vercel/functions";
 import { randomUUID } from "node:crypto";
 import sync, { MAX_SYNC_SIZE } from "../todoist/sync";
@@ -124,7 +123,12 @@ const creationCard = (defaultProjectName: string, projects: Project[], options: 
     return card;
 };
 
-const convertTaskToProject = async (api: TodoistApi, taskId: string, projectId: string, options: Options) => {
+const convertTaskToProject = async (
+    api: TodoistApi,
+    taskId: string,
+    projectId: string,
+    options: Options
+): Promise<DoistCard> => {
     const commands: SyncCommand[] = [];
     const task = await api.getTask(taskId);
 
@@ -156,7 +160,8 @@ const convertTaskToProject = async (api: TodoistApi, taskId: string, projectId: 
         );
     }
 
-    const subtasks = await paginatedRequest(api, api.getTasks, { parentId: task.id });
+    const subtasks = (await api.getTasks({ parentId: task.id, limit: MAX_PAGE_SIZE })).results;
+    if (subtasks.length >= MAX_PAGE_SIZE) return syncTooLargeCard(ACTION.close, "task");
     commands.push(...subtasks.map(({ id }) => createCommand("item_move", { id, projectId })));
 
     if (commands.length > MAX_SYNC_SIZE) return syncTooLargeCard(ACTION.close, "task");
@@ -203,8 +208,8 @@ const toProject = async (c: Context<AuthEnv>) => {
                 const projects: Project[] = (await api.getProjects({ limit: 200 })).results;
                 return c.json({ card: creationCard(taskTitle, projects, options) });
             } else {
-                await convertTaskToProject(api, taskId, projectId, options);
-                return c.json({ card: syncInfoCard(ACTION.close, "task") });
+                const card = await convertTaskToProject(api, taskId, projectId, options);
+                return c.json({ card });
             }
         } else if (actionId === ACTION.createProject) {
             const projectName: string | undefined = inputs[INPUT.projectName];
@@ -217,8 +222,8 @@ const toProject = async (c: Context<AuthEnv>) => {
                 parentId: parentId === NO_PARENT_PROJECT ? undefined : parentId,
             });
 
-            await convertTaskToProject(api, taskId, project.id, data.options);
-            return c.json({ card: syncInfoCard(ACTION.close, "task") });
+            const card = await convertTaskToProject(api, taskId, project.id, data.options);
+            return c.json({ card });
         } else if (actionId === ACTION.close) {
             log(`${userId}: toProject/close`);
             countUser(userId);
